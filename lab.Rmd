@@ -1,0 +1,118 @@
+---
+title: "Correlated Data"
+author: 
+- "Mine Dogucu"
+- "Noah Johnson"
+date: "April 5, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(install.load)
+install_load('tidyverse')
+```
+
+```{r code-dump}
+hsb <- read.csv('hsb.csv')
+str(hsb)
+```
+
+General Linear Models require responses to be approximately normally distributed and independent. Through generalized linear models, we learned about handling responses that are not normally distributed (e.g. Poisson, Binomial). From now on we learn about multilevel models / linear mixed effect models / hierarchical linear models that can model response that violate the independence assumption. These models have responses  that are correlated thus not independent.
+
+**e.g.**
+
+In this class and in the next few, we will be using the hsb.csvdataset on Canvas>Modules>Datasets. We will try to understand math achievement (mathach) of students based on their socio-economic status (ses). We will use the notation $Yij$ for math achievement of $i$th student in the $j$th school. There are __X__ students within __Y__ schools in this dataset.
+
+Using R, set random seed to your phone number without the area code.
+
+```{r}
+set.seed(4705024)
+```
+
+Calculate the average math achievement score for all students in the dataset. 
+
+```{r}
+avg_mathach <- hsb %>% summarise(avg_mathach = mean(mathach))
+print(avg_mathach)
+```
+
+$Y_{..}=`r avg_mathach$avg_mathach`$
+
+Pick a random school (make sure each school has equal probability to be selected). For **only** the school you selected, find the mean math achievement.
+
+```{r}
+random_school_id <- hsb$schoolid %>% 
+  unique() %>% 
+  sample(1)
+
+print(random_school_id)
+
+my_school <- hsb %>% filter(schoolid == random_school_id)
+
+mean_school_math_score <- my_school %>% 
+  summarise(mathach = mean(mathach))
+print(mean_school_math_score)
+```
+
+$Y_{.j}= `r mean_school_math_score`$
+
+For your school, fit a general linear model where math achievement is the response and ses is the predictor. Record the coefficients:
+
+```{r}
+my_school_model <- lm(mathach ~ ses, data = my_school)
+summary(my_school_model)
+```
+
+$\hat{\beta_{0j}} : `r my_school_model$coefficients[[1]]`$
+$\hat{\beta_{1j}}: `r my_school_model$coefficients[[2]]`$
+
+For your school, fit a general linear model where math achievement is the response and grand mean centered ses is the predictor. Record the coefficients:
+
+```{r}
+hsb$ses.grandmean_c <- hsb$ses - mean(hsb$ses)
+my_school <- hsb %>% filter(schoolid == random_school_id)
+
+my_school_model.grand <- lm(mathach ~ ses.grandmean_c, data = my_school)
+summary(my_school_model.grand)
+```
+
+$\hat{\beta_{0j}} : `r my_school_model.grand$coefficients[[1]]`$
+$\hat{\beta_{1j}}: `r my_school_model.grand$coefficients[[2]]`$
+
+For your school, fit a general linear model where group mean centered math achievement is the response and ses is the predictor. Record the coefficients:
+
+```{r}
+school_means <- hsb %>% 
+  group_by(schoolid) %>% 
+  summarise(ses.groupmean = mean(ses))
+
+hsb <- merge(hsb, school_means, by = "schoolid")
+
+hsb$ses.groupmean_c <- hsb$ses - hsb$ses.groupmean
+
+my_school_model.group <- lm(ses.grandmean_c ~ ses, data = my_school)
+summary(my_school_model.group)
+```
+
+$\hat{\beta_{0j}} : `r my_school_model.group$coefficients[[1]]`$
+$\hat{\beta_{1j}}: `r my_school_model.group$coefficients[[2]]`$
+
+We will use group-mean centering moving on.
+
+## Different effect types
+
+## Empty Model - One-Way Random-Effect ANOVA
+
+```{r}
+install_load('lme4')
+model.null <- lmer(mathach ~ 1 + (1|schoolid), data=hsb)
+summary(model.null)
+```
+
+## Model Notation:
+
+## Parameter Estimates:
+
+## ICC
