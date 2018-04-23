@@ -1,10 +1,10 @@
 ---
-title: "Correlated Data"
+title: "Correlated Data Lab"
 author: 
 - "Mine Dogucu"
 - "Noah Johnson"
 date: "April 5, 2018"
-output: pdf_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(install.load)
 install_load('tidyverse')
+install_load('lme4')
 ```
 
 General Linear Models require responses to be approximately normally distributed and independent. Through generalized linear models, we learned about handling responses that are not normally distributed (e.g. Poisson, Binomial). From now on we learn about multilevel models / linear mixed effect models / hierarchical linear models that can model response that violate the independence assumption. These models have responses  that are correlated thus not independent.
@@ -31,7 +32,7 @@ avg_mathach <- hsb %>% summarise(avg_mathach = mean(mathach))
 
 $Y_{..}=`r avg_mathach$avg_mathach`$
 
-Pick a random school (make sure each school has equal probability to be selected). For **only** the school you selected, find the mean math achievement.
+Pick a random school (make sure each school has equal probability to be selected).
 
 ```{r}
 random_school_id <- hsb$schoolid %>% 
@@ -39,7 +40,11 @@ random_school_id <- hsb$schoolid %>%
   sample(1)
 
 print(random_school_id)
+```
 
+For **only** the school you selected, find the mean math achievement.
+
+```{r}
 my_school <- hsb %>% filter(schoolid == random_school_id)
 
 mean_school_math_score <- my_school %>% 
@@ -71,7 +76,7 @@ summary(my_school_model.grand)
 $\hat{\beta_{0j}} : `r my_school_model.grand$coefficients[[1]]`$
 $\hat{\beta_{1j}}: `r my_school_model.grand$coefficients[[2]]`$
 
-For your school, fit a general linear model where group mean centered math achievement is the response and ses is the predictor. Record the coefficients:
+For your school, fit a general linear model where math achievement is the response and group mean centered ses is the predictor. Record the coefficients:
 
 ```{r}
 school_means <- hsb %>% 
@@ -82,7 +87,9 @@ hsb <- merge(hsb, school_means, by = "schoolid")
 
 hsb$ses.groupmean_c <- hsb$ses - hsb$ses.groupmean
 
-my_school_model.group <- lm(ses.grandmean_c ~ ses, data = my_school)
+my_school <- hsb %>% filter(schoolid == random_school_id)
+
+my_school_model.group <- lm(mathach ~ ses.groupmean_c, data = my_school)
 summary(my_school_model.group)
 ```
 
@@ -91,18 +98,34 @@ $\hat{\beta_{1j}}: `r my_school_model.group$coefficients[[2]]`$
 
 We will use group-mean centering moving on.
 
-## Different effect types
-
 ## Empty Model - One-Way Random-Effect ANOVA
 
 ```{r}
-install_load('lme4')
 model.null <- lmer(mathach ~ 1 + (1|schoolid), data=hsb)
-summary(model.null)
+model.null.sum <- summary(model.null)
+model.null.sum
 ```
 
-## Model Notation:
+### Model Notation:
 
-## Parameter Estimates:
+$mathach_{ij} = \beta_{0j} + r_{ij}$
 
-## ICC
+$\beta_{0j} = \gamma_{00} + u_{0j}$
+
+$\gamma_{00}$ is the estimated grand mean math achievement.
+
+$var(u_{0j})$ is the between-group variance, i.e. the variance in the response explained by schoolid.
+
+$var(r_{ij})$ or $\sigma^2$ is the residual within-group variance. When estimating, the notation $s^2$ is used.
+
+### Parameter Estimates:
+
+$\gamma_{00} = `r model.null.sum$coefficients[1]`$
+
+$var(u_{0j}) = 8.614$
+
+$var(r_{ij}) = 39.148$
+
+### ICC
+
+$ICC = \frac{\hat{var}(u0j)}{\hat{var}(u0j) + s^2} = \frac{8.614}{8.614 + 39.148} = `r (8.614)/(8.614 + 39.148)`$ is the intraclass correlation coefficient. Since it is not zero, some variance in math achievement is accounted for by schoolid.
